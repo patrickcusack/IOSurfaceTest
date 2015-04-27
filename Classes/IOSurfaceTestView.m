@@ -64,6 +64,7 @@
 		glGenTextures(1, &_surfaceTexture);
 		glDisable(GL_TEXTURE_RECTANGLE_ARB);
 	}
+    [self setWantsBestResolutionOpenGLSurface:YES];
 	
 	return self;
 }
@@ -111,7 +112,9 @@
 {
  	CGLContextObj   cgl_ctx = [[self openGLContext]  CGLContextObj];
 	
-	glViewport(0, 0, [self bounds].size.width, [self bounds].size.height);
+    NSRect backingBounds = [self convertRectToBacking:[self bounds]];
+    
+	glViewport(0, 0, backingBounds.size.width, backingBounds.size.height);
     
     glClearColor(0.0, 0.0, 0.0, 0.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);

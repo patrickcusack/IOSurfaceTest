@@ -254,7 +254,7 @@ static void frameAvailable(QTVisualContextRef vContext, const CVTimeStamp *frame
         [self idle];
     }
     
-    maxQueueSize	= 16;
+    maxQueueSize	= 2;
     _movieLock		= OS_SPINLOCK_INIT;
     _isMoviePlaying = NO;
     
@@ -286,6 +286,7 @@ static void frameAvailable(QTVisualContextRef vContext, const CVTimeStamp *frame
 	[super dealloc];
 }
 
+//The defaul play method
 - (oneway void) setMovieIsPlaying:(BOOL)flag{
     
     if (![self hasMovie]) {
@@ -295,7 +296,6 @@ static void frameAvailable(QTVisualContextRef vContext, const CVTimeStamp *frame
     if (_isMoviePlaying == YES) {
         [qtMovie stop];
         _isMoviePlaying = NO;
-        [self releaseFrameQueue];
     } else{
         [self setMovieRate: 1.0];
         _isMoviePlaying = YES;
