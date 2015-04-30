@@ -32,11 +32,12 @@
 
 #import <Cocoa/Cocoa.h>
 #import "TaskWrapper.h"
+#import "PCScrubber.h"
 #import "PCProxyProtocol.h"
 
 @class IOSurfaceTestView;
 
-@interface IOSurfaceTestAppDelegate : NSObject <NSApplicationDelegate, TaskWrapperController>
+@interface IOSurfaceTestAppDelegate : NSObject <NSApplicationDelegate, TaskWrapperController, PCScrubberProxy>
 {
     NSWindow			*window;
 	IOSurfaceTestView	*view;
@@ -52,24 +53,39 @@
 	
 	BOOL				_moviePlaying;
     id                  movieProxy;
+    unsigned long       maxMoviePosition;
+    unsigned long       currentMoviePosition;
 }
 
+- (IBAction)chooseMovie: (id)sender;
+- (void)getMovieInfo;
+
+
+- (IBAction)goToTime:(id)sender;
 - (IBAction)forward:(id)sender;
 - (IBAction)back:(id)sender;
+- (IBAction)goToBeginning:(id)sender;
+- (IBAction)gotoEnd:(id)sender;
+- (IBAction)setRate:(id)sender;
 
-- (IBAction)chooseMovie: (id)sender;
-//- (IBAction)playMovie: (id)sender;
 
 - (void)appendOutput:(NSString *)output fromProcess: (TaskWrapper *)aTask;
 - (void)processStarted: (TaskWrapper *)aTask;
 - (void)processFinished: (TaskWrapper *)aTask withStatus: (int)statusCode;
 
+
 @property (assign) IBOutlet NSWindow			*window;
 @property (assign) IBOutlet IOSurfaceTestView	*view;
 @property (assign) IBOutlet NSButton			*playButton;
 @property (assign) IBOutlet NSTextField			*fpsField;
+@property (assign) IBOutlet NSSlider            *positionSlider;
+@property (assign) IBOutlet PCScrubber          *rateSlider;
+
+
 @property (nonatomic, readwrite,retain) TaskWrapper *moviePlayer;
 @property (nonatomic, readwrite,retain) NSString *moviePath;
 @property (nonatomic, readwrite, retain) id movieProxy;
+@property (nonatomic, assign) unsigned long maxMoviePosition;
+@property (nonatomic, assign) unsigned long currentMoviePosition;
 
 @end

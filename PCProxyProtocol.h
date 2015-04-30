@@ -12,6 +12,10 @@
 
 #pragma mark - setters for movie properties
 - (oneway void) setMovieIsPlaying:(BOOL)flag;
+- (void)goToBeginning;
+- (void)goToEnd;
+- (oneway void)goToTimeValue:(long)timeValue;
+- (oneway void)setMovieRate:(float)nRate;
 //- (oneway void) setMovieRate:(float)rate;
 //- (oneway void) setMovieTime:(float)time;
 
@@ -20,6 +24,10 @@
 -(BOOL)isMoviePlaying;
 -(void)back;
 -(void)forward;
+-(long long)currentTimeValue;
+-(long long)maxTimeValue;
+-(long)timeScale;
+
 //- (float) movieRate;
 //- (double) movieTime;
 //- (float) movieNormalizedTime;

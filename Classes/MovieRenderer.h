@@ -68,20 +68,22 @@ typedef struct _QueueItem {
 	NSInteger							currentQueueIdx;
 	NSTimeInterval						refHostTime;
 	NSTimeInterval						frameStep;
-    
+
 	QueueItem							frameQueue[FRAME_QUEUE_SIZE];
     
-    NSString * doUUID;
-    pid_t   _parentID;
-    NSConnection * _theConnection;
-    NSTimer * _pollParentTimer;
-    BOOL _isMoviePlaying;
+    NSString        *doUUID;
+    pid_t           _parentID;
+    NSConnection    *_theConnection;
+    NSTimer         *_pollParentTimer;
+    BOOL            _isMoviePlaying;
     
     NSFileHandle * standardOut;
     id _currentFrame;
     NSTimeInterval	timing;
     NSTimer * _movieTimer;
     
+    CVDisplayLinkRef        displayLink;
+    CGDirectDisplayID       mainDisplayID;
 }
 
 + (void)setAudioDelay: (double)audioDelay;
@@ -90,6 +92,15 @@ typedef struct _QueueItem {
 - (void)startPlay;
 - (void)stopAndReleaseMovie;
 - (void)idle;
+
+- (void)goToBeginning;
+- (void)goToEnd;
+- (oneway void)goToTimeValue:(long)timeValue;
+- (oneway void)setMovieRate:(float)nRate;
+
+- (long long)currentTimeValue;
+- (long long)maxTimeValue;
+- (long)timeScale;
 
 - (oneway void) setMovieIsPlaying:(BOOL)flag;
 - (BOOL)hasMovie;
@@ -103,7 +114,6 @@ typedef struct _QueueItem {
 
 - (NSInteger)maxQueueSize;
 - (void)setMaxQueueSize: (NSInteger)aSize;
-- (float)movieRate;
 - (void)setMovieRate: (float)aFloat;
 - (float)movieVolume;
 - (void)setMovieVolume: (float)aFloat;
@@ -116,6 +126,8 @@ typedef struct _QueueItem {
 - (IOSurfaceID)currentSurfaceID;
 #endif
 - (id)currentFrame;
+- (void)getFrame:(NSTimer *)aTimer;
+- (void)getFrameDisplayLink:(double)nTime;
 - (id)getFrameAtTime: (NSTimeInterval)aTime;
 - (void)releaseFrameQueue;
 

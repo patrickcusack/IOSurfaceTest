@@ -36,7 +36,7 @@
 
 @implementation IOSurfaceTestAppDelegate
 
-@synthesize window, moviePlayer, moviePath, view, playButton, fpsField, movieProxy;
+@synthesize window, moviePlayer, moviePath, view, playButton, fpsField, movieProxy, currentMoviePosition, maxMoviePosition;
 
 + (NSString*)uuid{
     CFUUIDRef	uuidObj = CFUUIDCreate(nil);//create a new UUID
@@ -61,11 +61,14 @@
 	[super dealloc];
 }
 
-- (void)_countFrames: (NSTimer *)aTimer
-{
+- (void)_countFrames: (NSTimer *)aTimer{
 #pragma unused(aTimer)
 	[fpsField setIntegerValue: numFrames];
 	numFrames	= 0;
+    
+    if ([self movieProxy]) {
+        [[self positionSlider] setDoubleValue:[[self movieProxy] currentTimeValue]];
+    }
 }
 
 - (void)applicationDidFinishLaunching:(NSNotification *)aNotification
@@ -79,11 +82,35 @@
 														   repeats: YES] retain];
  
     [self launchHelper];
+    
+    [(PCScrubber*)[self rateSlider] setDelegate:self];
 }
 
 - (void)applicationWillTerminate:(NSNotification *)notification{
     [[self movieProxy] quitHelperTool];
     [self setMovieProxy:nil];
+}
+
+- (void)getMovieInfo{
+    if ([[self movieProxy] hasMovie]) {
+        [self setCurrentMoviePosition:0];
+        [self setMaxMoviePosition:[[self movieProxy] maxTimeValue]];
+        [[self positionSlider] setDoubleValue:0.0];
+        [[self positionSlider] setMaxValue:[self maxMoviePosition]];
+    }
+}
+
+- (IBAction)playMovie: (id)sender{
+    
+    if ([[self movieProxy] hasMovie]) {
+        if ([[self movieProxy] isMoviePlaying]) {
+            [[self movieProxy] setMovieIsPlaying:NO];
+            [(NSButton*)sender setTitle:@"Play"];
+        } else {
+            [[self movieProxy] setMovieIsPlaying:YES];
+            [(NSButton*)sender setTitle:@"Stop"];
+        }
+    }
 }
 
 - (IBAction)forward:(id)sender {
@@ -95,6 +122,33 @@
 - (IBAction)back:(id)sender {
     if ([[self movieProxy] hasMovie]) {
         [[self movieProxy] back];
+    }
+}
+
+- (IBAction)goToBeginning:(id)sender {
+    if ([[self movieProxy] hasMovie]) {
+        [[self movieProxy] goToBeginning];
+    }
+}
+
+- (IBAction)gotoEnd:(id)sender{
+    if ([[self movieProxy] hasMovie]) {
+        [[self movieProxy] gotoEnd];
+    }
+}
+
+- (IBAction)setRate:(id)sender {
+
+    if ([[self movieProxy] hasMovie]) {
+        [[self movieProxy] setMovieRate:[sender floatValue]];
+    }
+}
+
+- (IBAction)goToTime:(id)sender{
+    long newTime = (long)[sender doubleValue];
+    
+    if ([[self movieProxy] hasMovie]) {
+        [[self movieProxy] goToTimeValue:newTime];
     }
 }
 
@@ -112,26 +166,14 @@
             case NSOKButton:
                 self.moviePath	= [[openPanel URL] path];
                 [[self movieProxy] openMovieURL:[openPanel URL]];
+                [self getMovieInfo];
                 break;
-                
             default:
                 self.moviePath	= nil;
                 break;
         }
     }];
-
 }
-
-- (IBAction)playMovie: (id)sender{
-    if ([[self movieProxy] hasMovie]) {
-        if ([[self movieProxy] isMoviePlaying]) {
-            [[self movieProxy] setMovieIsPlaying:NO];
-        } else {
-            [[self movieProxy] setMovieIsPlaying:YES];
-        }
-    }
-}
-
 
 - (void)launchHelper{
     

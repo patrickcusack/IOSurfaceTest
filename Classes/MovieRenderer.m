@@ -69,11 +69,25 @@ static void frameAvailable(QTVisualContextRef vContext, const CVTimeStamp *frame
 	if ((err = QTVisualContextCopyImageForTime(vContext, NULL, frameTime, &currentFrame)) == kCVReturnSuccess) {
 		[renderer addToFrameQueue: currentFrame atTime: realTime];
 	} else {
-		NSLog(@"Error %d getting frame at %.2f", err, realTime);
+		NSLog(@"Error %d getting frame at %.2f", (int)err, realTime);
 	}
 	
 	[pool release];
 }
+
+CVReturn myCVDisplayCallBack (CVDisplayLinkRef displayLink,
+                              const CVTimeStamp *inNow,
+                              const CVTimeStamp *inOutputTime,
+                              CVOptionFlags flagsIn,
+                              CVOptionFlags *flagsOut,
+                              void *displayLinkContext){
+    
+    [(MovieRenderer*)displayLinkContext getFrameDisplayLink:(double)inNow->videoTime];
+    
+    
+    return kCVReturnSuccess;
+}
+
 
 @implementation MovieRenderer
 @synthesize doUUID;
@@ -83,14 +97,13 @@ static void frameAvailable(QTVisualContextRef vContext, const CVTimeStamp *frame
 #pragma mark Class Methods
 #pragma mark -
 
-+ (void)setAudioDelay: (double)audioDelay
-{
-	if (audioDelay >= 0.0)
-		gAudioDelay = audioDelay;
++ (void)setAudioDelay: (double)audioDelay{
+    if (audioDelay >= 0.0){
+        gAudioDelay = audioDelay;
+    }
 }
 
-+ (void)setAlphaSurface: (BOOL)doAlpha
-{
++ (void)setAlphaSurface: (BOOL)doAlpha{
 	gUseAlpha	= doAlpha;
 }
 
@@ -101,10 +114,11 @@ static void frameAvailable(QTVisualContextRef vContext, const CVTimeStamp *frame
 - (void)applicationDidFinishLaunching:(NSNotification *)notification{
     
     _parentID = getppid();
-//    NSLog(@"%d %@", parentID,  [NSRunningApplication runningApplicationWithProcessIdentifier:parentID]);
     
     // unique server name per plugin instance
+    
     _theConnection = [[NSConnection new] retain];
+    
     [_theConnection setRootObject:self];
     if ([_theConnection registerName:[NSString stringWithFormat:@"info.proxyplayer.movierenderer-%@", [self doUUID], nil]] == NO){
         NSLog(@"Error opening NSConnection - exiting");
@@ -117,8 +131,7 @@ static void frameAvailable(QTVisualContextRef vContext, const CVTimeStamp *frame
 }
 
 
-- (void)setupPollParentTimer
-{
+- (void)setupPollParentTimer{
     _pollParentTimer = [NSTimer scheduledTimerWithTimeInterval:(NSTimeInterval) 1
                                                        target:self
                                                      selector:@selector(pollParent)
@@ -126,17 +139,16 @@ static void frameAvailable(QTVisualContextRef vContext, const CVTimeStamp *frame
                                                       repeats:YES];
 }
 
-- (void)pollParent
-{
+- (void)pollParent{
+    
     if([NSRunningApplication runningApplicationWithProcessIdentifier:_parentID] == nil){
         [self quitHelperTool];
     }
     
 }
 
--(oneway void)quitHelperTool
-{
-    NSLog(@"Quitting");
+-(oneway void)quitHelperTool{
+    NSLog(@"Movie Helper Process will terminate.");
     [self cleanUp];
     [[NSApplication sharedApplication] terminate:nil];
 }
@@ -156,26 +168,85 @@ static void frameAvailable(QTVisualContextRef vContext, const CVTimeStamp *frame
 #else
             sprintf(cmdStr, "F#%lu#\n", (unsigned long)[self currentFrame]);
 #endif
-            [standardOut writeData: [NSData dataWithBytesNoCopy: cmdStr
-                                                         length: strlen(cmdStr)
-                                                   freeWhenDone: NO]];
+            [standardOut writeData: [NSData dataWithBytesNoCopy: cmdStr length: strlen(cmdStr) freeWhenDone: NO]];
             _currentFrame	= newFrame;
         }
         timing	+= [aTimer timeInterval];
     }
 }
 
+- (void)getFrameDisplayLink:(double)nTime
+{
+    id newFrame	= [self getFrameAtTime: nTime];
+    
+    if (newFrame) {
+        if (newFrame != _currentFrame) {
+            char		cmdStr[256];
+            
+#if COREVIDEO_SUPPORTS_IOSURFACE
+            sprintf(cmdStr, "ID#%lu#\n", (unsigned long)[self currentSurfaceID]);
+#else
+            sprintf(cmdStr, "F#%lu#\n", (unsigned long)[self currentFrame]);
+#endif
+            [standardOut writeData: [NSData dataWithBytesNoCopy: cmdStr length: strlen(cmdStr) freeWhenDone: NO]];
+            _currentFrame	= newFrame;
+        }
+    }
+}
+
 - (void)startMovieTimer{
-    _movieTimer = [NSTimer scheduledTimerWithTimeInterval: 1./30
-                                     target: self
-                                   selector: @selector(getFrame:)
-                                   userInfo: nil
-                                    repeats: YES];
+    
+//    _movieTimer = [NSTimer scheduledTimerWithTimeInterval: 1./30
+//                                     target: self
+//                                   selector: @selector(getFrame:)
+//                                   userInfo: nil
+//                                    repeats: YES];
+    
+    [self setUpDisplayLink];
+    
 }
 
 - (void)stopMovieTimer{
-    [_movieTimer invalidate];
-    _movieTimer = nil;
+//    [_movieTimer invalidate];
+//    _movieTimer = nil;
+    
+    [self tearDownDisplayLink];
+}
+
+- (void)setUpDisplayLink{
+    mainDisplayID = kCGDirectMainDisplay;
+    
+    CVReturn error = CVDisplayLinkCreateWithCGDisplay(kCGDirectMainDisplay, &displayLink);
+    
+    if(error) {
+        NSLog(@"DisplayLink created with error:%d", error);
+        displayLink = NULL;
+        return;
+    }
+    
+    CVDisplayLinkSetCurrentCGDisplay(displayLink, kCGDirectMainDisplay);
+    CVDisplayLinkSetOutputCallback(displayLink, myCVDisplayCallBack, self);
+    
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(windowChangedScreen:)
+                                                 name:NSWindowDidChangeScreenNotification
+                                               object:nil];
+    
+    [self performSelector:@selector(startDisplayLink) withObject:self afterDelay:1.0];
+}
+
+- (void)tearDownDisplayLink{
+    if (displayLink) {
+        CVDisplayLinkStop(displayLink);
+        CVDisplayLinkRelease(displayLink);
+        displayLink = NULL;
+    }
+}
+
+- (void)startDisplayLink{
+    if(displayLink ){
+        CVDisplayLinkStart(displayLink);
+    }
 }
 
 #pragma mark -
@@ -196,18 +267,28 @@ static void frameAvailable(QTVisualContextRef vContext, const CVTimeStamp *frame
     NSDictionary	*ctxAttrs	= [NSDictionary dictionaryWithObjectsAndKeys: [self pixelBufferAttributes], kQTVisualContextPixelBufferAttributesKey,
                                    [NSNumber numberWithFloat: gAudioDelay], kQTVisualContextExpectedReadAheadKey,
                                    nil];
-    NSDictionary	*movieAttrs	= [NSDictionary dictionaryWithObjectsAndKeys: aPath, QTMovieFileNameAttribute,
-                                   [NSNumber numberWithBool: hasAudio], QTMovieEditableAttribute,
-                                   [NSNumber numberWithFloat: 1.0], QTMovieVolumeAttribute,
-                                   //																				[NSNumber numberWithBool: YES], QTMovieDontInteractWithUserAttribute,
-                                   [NSNumber numberWithBool: YES], QTMovieOpenAsyncOKAttribute,
-                                   nil];
+//    NSDictionary	*movieAttrs	= [NSDictionary dictionaryWithObjectsAndKeys: aPath, QTMovieFileNameAttribute,
+////                                   [NSNumber numberWithBool: hasAudio], QTMovieEditableAttribute,
+//                                   [NSNumber numberWithFloat: 1.0], QTMovieVolumeAttribute,
+//                                   //																				[NSNumber numberWithBool: YES], QTMovieDontInteractWithUserAttribute,
+//                                   [NSNumber numberWithBool: YES], QTMovieOpenAsyncOKAttribute,
+//                                   nil];
+    
+    
+     NSDictionary	* movieAttrs = [NSDictionary dictionaryWithObjectsAndKeys:
+     [NSNumber numberWithBool:NO], QTMovieRateChangesPreservePitchAttribute,
+     [NSNumber numberWithBool:NO], QTMovieOpenAsyncOKAttribute,
+     aPath, QTMovieFileNameAttribute,
+     nil];
+
     
     QTPixelBufferContextCreate(kCFAllocatorDefault, (CFDictionaryRef)ctxAttrs, &vContext);
     
     moviePath	= [aPath copy];
     
-    qtMovie = [[QTMovie alloc] initWithAttributes: movieAttrs error: nil];
+    NSError * e = nil;
+    qtMovie = [[QTMovie alloc] initWithAttributes: movieAttrs error: &e];
+    NSLog(@"%@", [e localizedDescription]);
     
     if (qtMovie) {
         NSUInteger	playHints	= hintsHighQuality;
@@ -241,7 +322,6 @@ static void frameAvailable(QTVisualContextRef vContext, const CVTimeStamp *frame
         if ([qtMovie respondsToSelector: @selector(frameEndTime:)]) {
             // Only on QT 7.6.3
             QTTime	qtStep	= [qtMovie frameEndTime: QTMakeTime(0, tScale)];
-            
             QTGetTimeInterval (qtStep, &frameStep);
         } else {
             [qtMovie stepForward];
@@ -254,7 +334,7 @@ static void frameAvailable(QTVisualContextRef vContext, const CVTimeStamp *frame
         [self idle];
     }
     
-    maxQueueSize	= 2;
+    maxQueueSize	= 1;
     _movieLock		= OS_SPINLOCK_INIT;
     _isMoviePlaying = NO;
     
@@ -309,13 +389,50 @@ static void frameAvailable(QTVisualContextRef vContext, const CVTimeStamp *frame
     return NO;
 }
 
+-(void)goToBeginning{
+    if (![self hasMovie]) {
+        return;
+    }
+    
+    [qtMovie gotoBeginning];
+}
+
+- (void)goToEnd{
+    if (![self hasMovie]) {
+        return;
+    }
+    
+    [qtMovie gotoEnd];
+}
+
+- (oneway void)goToTimeValue:(long)timeValue{
+    if (![self hasMovie]) {
+        return;
+    }
+
+    QTTime cTime = [qtMovie currentTime];
+    QTTime nTime;
+    nTime.timeValue = timeValue;
+    nTime.timeScale = cTime.timeScale;
+    nTime.flags = cTime.flags;
+    
+    [qtMovie setCurrentTime:nTime];
+}
+
+- (oneway void)setMovieRate:(float)nRate{
+    if (![self hasMovie]) {
+        return;
+    }
+    
+    [qtMovie setRate:nRate];
+}
+
 - (void)forward{
     if (![self hasMovie]) {
         return;
     }
     
     [qtMovie stepForward];
-    
 }
 
 - (void)back{
@@ -324,6 +441,27 @@ static void frameAvailable(QTVisualContextRef vContext, const CVTimeStamp *frame
     }
     
     [qtMovie stepBackward];
+}
+
+- (long long)currentTimeValue{
+    if (![self hasMovie]) {
+        return 0;
+    }
+    return [qtMovie currentTime].timeValue;
+}
+
+- (long long)maxTimeValue{
+    if (![self hasMovie]) {
+        return 0;
+    }
+    return [[qtMovie attributeForKey:QTMovieDurationAttribute] QTTimeValue].timeValue;
+}
+
+- (long)timeScale{
+    if (![self hasMovie]) {
+        return 0;
+    }
+    return [[qtMovie attributeForKey:QTMovieDurationAttribute] QTTimeValue].timeScale;
 }
 
 - (BOOL)isMoviePlaying{
@@ -345,15 +483,8 @@ static void frameAvailable(QTVisualContextRef vContext, const CVTimeStamp *frame
 		SetMovieVisualContext([qtMovie quickTimeMovie], NULL);
 		[qtMovie release];
 		qtMovie = nil;
-	} else if (captureSession && [captureSession isRunning]) {
-		QTCaptureDevice *device = [deviceInput device];
-		
-		[captureSession stopRunning];
-		
-		if ([device isOpen])
-			[device close];    
 	}
-	
+    
 	[self releaseFrameQueue];
 }
 
@@ -372,7 +503,6 @@ static void frameAvailable(QTVisualContextRef vContext, const CVTimeStamp *frame
 {
 	if (qtMovie) {
 		QTTime			qtDuration	= [qtMovie duration];
-		
 		return (double)qtDuration.timeValue / (double)qtDuration.timeScale;
 	}
 	
@@ -442,12 +572,6 @@ static void frameAvailable(QTVisualContextRef vContext, const CVTimeStamp *frame
 		return 0.0;
 }
 
-- (void)setMovieRate: (float)aFloat
-{
-	if (qtMovie)
-		[qtMovie setRate: aFloat];
-}
-
 - (float)movieVolume
 {
 	if (qtMovie) {
@@ -455,7 +579,6 @@ static void frameAvailable(QTVisualContextRef vContext, const CVTimeStamp *frame
 	} else {
 		return 0.0;
 	}
-
 }
 
 - (void)setMovieVolume: (float)aFloat
@@ -484,7 +607,6 @@ static void frameAvailable(QTVisualContextRef vContext, const CVTimeStamp *frame
 		[qtMovie setCurrentTime: QTMakeTimeWithTimeInterval(aDouble)];
 	}
 }
-
 
 - (NSDictionary *)pixelBufferAttributes
 {
@@ -572,42 +694,40 @@ static void frameAvailable(QTVisualContextRef vContext, const CVTimeStamp *frame
 }
 
 
-// This delegate method is called whenever the QTCaptureDecompressedVideoOutput receives a frame
-- (void)captureOutput: (QTCaptureOutput *)captureOutput
-  didOutputVideoFrame: (CVImageBufferRef)videoFrame
-	 withSampleBuffer: (QTSampleBuffer *)sampleBuffer
-	   fromConnection: (QTCaptureConnection *)connection
-{
-	NSTimeInterval		realTime	= 0.0;
-	NSMutableDictionary	*timeDict	= [NSMutableDictionary dictionaryWithCapacity: 2];
-	
-	realTime = (double)AudioConvertHostTimeToNanos(AudioGetCurrentHostTime()) / 1000000000.0;
-	
-	if (refHostTime <= 0.0)
-		refHostTime	= realTime;
-	
-	realTime	-= refHostTime;
-	[timeDict setObject: [NSNumber numberWithInteger: 600]
-				 forKey: (NSString *)kCVBufferTimeScaleKey];
-	[timeDict setObject: [NSNumber numberWithInteger: (NSInteger)(realTime * 600.0)]
-				 forKey: (NSString *)kCVBufferTimeValueKey];
-	CVBufferSetAttachment(videoFrame, kCVBufferMovieTimeKey, (CFDictionaryRef)timeDict, kCVAttachmentMode_ShouldPropagate);
-	CVBufferRetain(videoFrame);
-	
-	[self addToFrameQueue: videoFrame atTime: realTime];
-}
+//// This delegate method is called whenever the QTCaptureDecompressedVideoOutput receives a frame
+//- (void)captureOutput: (QTCaptureOutput *)captureOutput
+//  didOutputVideoFrame: (CVImageBufferRef)videoFrame
+//	 withSampleBuffer: (QTSampleBuffer *)sampleBuffer
+//	   fromConnection: (QTCaptureConnection *)connection
+//{
+//	NSTimeInterval		realTime	= 0.0;
+//	NSMutableDictionary	*timeDict	= [NSMutableDictionary dictionaryWithCapacity: 2];
+//	
+//	realTime = (double)AudioConvertHostTimeToNanos(AudioGetCurrentHostTime()) / 1000000000.0;
+//	
+//	if (refHostTime <= 0.0)
+//		refHostTime	= realTime;
+//	
+//	realTime	-= refHostTime;
+//	[timeDict setObject: [NSNumber numberWithInteger: 600]
+//				 forKey: (NSString *)kCVBufferTimeScaleKey];
+//	[timeDict setObject: [NSNumber numberWithInteger: (NSInteger)(realTime * 600.0)]
+//				 forKey: (NSString *)kCVBufferTimeValueKey];
+//	CVBufferSetAttachment(videoFrame, kCVBufferMovieTimeKey, (CFDictionaryRef)timeDict, kCVAttachmentMode_ShouldPropagate);
+//	CVBufferRetain(videoFrame);
+//	
+//	[self addToFrameQueue: videoFrame atTime: realTime];
+//}
 
 @end
 
 @implementation MovieRenderer (FrameQueueHandling)
 
-- (NSTimeInterval)refHostTime
-{
+- (NSTimeInterval)refHostTime{
 	return refHostTime;
 }
 
-- (void)setRefHostTime: (NSTimeInterval)aTime
-{
+- (void)setRefHostTime: (NSTimeInterval)aTime{
 	refHostTime	= aTime;
 }
 
@@ -675,9 +795,9 @@ static void frameAvailable(QTVisualContextRef vContext, const CVTimeStamp *frame
 				} else {
 					// We've finished the queue, pop first item and shift up
 					currentIdx	= ii - 1;
-#ifdef DEBUG
-//					NSLog(@"Substituting frame time at idx 0 timestamp %.2f...", frameQueue[0].frameTime);
-#endif
+//#ifdef DEBUG
+////					NSLog(@"Substituting frame time at idx 0 timestamp %.2f...", frameQueue[0].frameTime);
+//#endif
 					CVBufferRelease(frameQueue[0].frameBuffer);
 						
 					for (ii = 0; ii < currentIdx; ii++)
@@ -688,9 +808,9 @@ static void frameAvailable(QTVisualContextRef vContext, const CVTimeStamp *frame
                 
 			} else if (frameQueue[ii].frameTime == currentFrameTime) {
 				// Duplicate frame
-#ifdef DEBUG
-//				NSLog(@"Discarding duplicate or old frame time at %.2f, realtime %.2f", currentFrameTime, realTime);
-#endif
+//#ifdef DEBUG
+////				NSLog(@"Discarding duplicate or old frame time at %.2f, realtime %.2f", currentFrameTime, realTime);
+//#endif
 				CVBufferRelease(currentFrame);
 				
 				OSSpinLockUnlock(&_movieLock);
@@ -703,9 +823,9 @@ static void frameAvailable(QTVisualContextRef vContext, const CVTimeStamp *frame
 	frameQueue[currentIdx].frameBuffer	= currentFrame;
 	frameQueue[currentIdx].frameTime	= currentFrameTime;
 	
-#ifdef	DEBUG
-	NSLog(@"Add frame at realTime %.2f idx %3ld timestamp %.2f, ", realTime, currentIdx, currentFrameTime);
-#endif
+//#ifdef	DEBUG
+//	NSLog(@"Add frame at realTime %.2f idx %3ld timestamp %.2f, ", realTime, currentIdx, currentFrameTime);
+//#endif
 	
 	OSSpinLockUnlock(&_movieLock);
 }
