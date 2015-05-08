@@ -32,74 +32,20 @@
 
 #import <Foundation/Foundation.h>
 #import "MovieRenderer.h"
+#import "MultiMovieRenderer.h"
 #import <mach/mach.h>
 
-//@interface MovieTest : NSObject {
-//    NSFileHandle	*standardOut;
-//    id				currentFrame;
-//    NSTimeInterval	timing;
-//}
-//
-//- (void)getFrame: (NSTimer *)aTimer;
-//
-//@end
-//
-//@implementation MovieTest
-//
-//- (id)init
-//{
-//    if (self = [super init]) {
-//        standardOut	= [(NSFileHandle *)[NSFileHandle fileHandleWithStandardOutput] retain];
-//        timing		= 0.0;
-//    }
-//    
-//    return self;
-//}
-//
-//
-//- (void)dealloc
-//{
-//    [standardOut release];
-//    
-//    [super dealloc];
-//}
-//
-//- (void)getFrame: (NSTimer *)aTimer
-//{
-//    MovieRenderer	*theMovie	= [aTimer userInfo];
-//    id				newFrame	= [theMovie getFrameAtTime: timing];
-//    
-//    if (newFrame) {
-//        if (newFrame != currentFrame) {
-//            char		cmdStr[256];
-//            
-//#if COREVIDEO_SUPPORTS_IOSURFACE
-//            sprintf(cmdStr, "ID#%lu#\n", (unsigned long)[theMovie currentSurfaceID]);
-//#else
-//            sprintf(cmdStr, "F#%lu#\n", (unsigned long)[theMovie currentFrame]);
-//#endif
-//            [standardOut writeData: [NSData dataWithBytesNoCopy: cmdStr
-//                                                         length: strlen(cmdStr)
-//                                                   freeWhenDone: NO]];
-//            
-//            currentFrame	= newFrame;
-//        }
-//        
-//        timing	+= [aTimer timeInterval];
-//    }
-//}
-//
-//@end
-
-MovieRenderer *helper;
+//MovieRenderer *helper;
+MultiMovieRenderer * helper;
 
 int main(int argc, const char * argv[]) {
     @autoreleasepool {
-        // insert code here...
+        NSLog(@"Starting...");
         
         if (argc > 1){
             NSApplication *app = [NSApplication sharedApplication];
-            helper	= [[MovieRenderer alloc] init];
+//            helper	= [[MovieRenderer alloc] init];
+            helper	= [[MultiMovieRenderer alloc] init];
             
             [app setDelegate:helper];
             [helper setDoUUID:[NSString stringWithCString:argv[1] encoding:NSUTF8StringEncoding]];
@@ -107,6 +53,7 @@ int main(int argc, const char * argv[]) {
             NSLog(@"Movie Helper Process is Running.");
             
             [app run];
+            
         } else {
             NSLog(@"Missing arguments for helper tool");
         }

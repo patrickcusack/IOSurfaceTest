@@ -34,14 +34,25 @@
 #import <OpenGL/gl.h>
 #import <IOSurface/IOSurface.h>
 
+
+@protocol IOSurfaceTestViewDragController <NSObject>
+- (void)handleDragURL:(NSURL*)dragURL;
+@end
+
 @interface IOSurfaceTestView : NSOpenGLView {
 	GLuint			_surfaceTexture;
 	IOSurfaceRef	_surface;
 	GLsizei			_texWidth;
 	GLsizei			_texHeight;
 	uint32_t		_seed;
+    NSSize          _movieSize;
+    
+    id <IOSurfaceTestViewDragController> controller;
 }
 
+- (void)setMovieSize:(NSSize)size;
 - (void)setSurfaceID: (IOSurfaceID)anID;
+
+@property (nonatomic, assign, readwrite) id <IOSurfaceTestViewDragController> controller;
 
 @end

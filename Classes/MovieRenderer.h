@@ -58,10 +58,6 @@ typedef struct _QueueItem {
 	QTMovie								*qtMovie;
 	NSString							*moviePath;
 	QTVisualContextRef					vContext;
-    
-    QTCaptureSession                    *captureSession;
-    QTCaptureDeviceInput                *deviceInput;
-    QTCaptureDecompressedVideoOutput	*videoOutput;
 	
 	OSSpinLock							_movieLock;
 	NSInteger							maxQueueSize;
@@ -71,25 +67,22 @@ typedef struct _QueueItem {
 
 	QueueItem							frameQueue[FRAME_QUEUE_SIZE];
     
-    NSString        *doUUID;
-    pid_t           _parentID;
-    NSConnection    *_theConnection;
-    NSTimer         *_pollParentTimer;
-    BOOL            _isMoviePlaying;
+    NSString                            *doUUID;
+    pid_t                               _parentID;
+    NSConnection                        *_theConnection;
+    NSTimer                             *_pollParentTimer;
+    BOOL                                _isMoviePlaying;
     
-    NSFileHandle * standardOut;
-    id _currentFrame;
-    NSTimeInterval	timing;
-    NSTimer * _movieTimer;
+    NSFileHandle                        *standardOut;
+    id                                  _currentFrame;
+    NSTimeInterval                      timing;
     
-    CVDisplayLinkRef        displayLink;
-    CGDirectDisplayID       mainDisplayID;
+    CVDisplayLinkRef                    displayLink;
+    CGDirectDisplayID                   mainDisplayID;
 }
 
-+ (void)setAudioDelay: (double)audioDelay;
-+ (void)setAlphaSurface: (BOOL)doAlpha;
+- (oneway void)addMovieURL:(NSURL*)movieURL;
 
-- (void)startPlay;
 - (void)stopAndReleaseMovie;
 - (void)idle;
 
@@ -102,9 +95,13 @@ typedef struct _QueueItem {
 - (long long)maxTimeValue;
 - (long)timeScale;
 
-- (oneway void) setMovieIsPlaying:(BOOL)flag;
+- (void)playMovie;
+- (void)stopMovie;
+- (oneway void)setMovieIsPlaying:(BOOL)flag;
 - (BOOL)hasMovie;
 - (BOOL)isMoviePlaying;
+
+- (NSValue*)movieSize;
 
 - (NSString *)moviePath;
 - (NSTimeInterval)movieDuration;

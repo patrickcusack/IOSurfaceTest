@@ -33,8 +33,53 @@
 #import "IOSurfaceTestView.h"
 #import <OpenGL/CGLMacro.h>
 
+@implementation IOSurfaceTestView (Drag)
+
+- (NSDragOperation)draggingEntered:(id<NSDraggingInfo>)sender{
+    NSPasteboard *pboard;
+    NSDragOperation sourceDragMask;
+    
+    sourceDragMask = [sender draggingSourceOperationMask];
+    pboard = [sender draggingPasteboard];
+    
+
+    if ( [[pboard types] containsObject:NSFilenamesPboardType] ) {
+        if (sourceDragMask & NSDragOperationLink) {
+            NSArray *files = [pboard propertyListForType:NSFilenamesPboardType];
+            if ([files count] == 1) {
+                if ([[files objectAtIndex:0] rangeOfString:@"mov"].location != NSNotFound) {
+                    return NSDragOperationLink;
+                }
+            }
+        }
+    }
+    
+    return NSDragOperationNone;
+}
+
+- (BOOL)performDragOperation:(id <NSDraggingInfo>)sender {
+    NSPasteboard *pboard;
+    NSDragOperation sourceDragMask;
+    
+    sourceDragMask = [sender draggingSourceOperationMask];
+    pboard = [sender draggingPasteboard];
+    
+    if ( [[pboard types] containsObject:NSFilenamesPboardType] ) {
+        NSArray *files = [pboard propertyListForType:NSFilenamesPboardType];
+        
+        if (sourceDragMask & NSDragOperationLink) {
+            if ([self controller]) {
+                [[self controller] handleDragURL:[NSURL fileURLWithPath:[files objectAtIndex:0]]];
+            }
+        }
+    }
+    return YES;
+}
+
+@end
 
 @implementation IOSurfaceTestView
+@synthesize controller;
 
 - (NSOpenGLPixelFormat*) basicPixelFormat
 {
@@ -63,9 +108,13 @@
 		glEnable(GL_TEXTURE_RECTANGLE_ARB);
 		glGenTextures(1, &_surfaceTexture);
 		glDisable(GL_TEXTURE_RECTANGLE_ARB);
+        
+        _movieSize = NSMakeSize(1920, 1080);
+        
 	}
     [self setWantsBestResolutionOpenGLSurface:YES];
-	
+    [self registerForDraggedTypes:@[NSFilenamesPboardType]];
+    
 	return self;
 }
 
@@ -108,18 +157,40 @@
 	}
 }
 
-- (void)reshape
-{
+- (void)setMovieSize:(NSSize)size{
+    _movieSize = size;
+    [self reshape];
+}
+
+- (void)reshape{
+    
  	CGLContextObj   cgl_ctx = [[self openGLContext]  CGLContextObj];
 	
     NSRect backingBounds = [self convertRectToBacking:[self bounds]];
-    
 	glViewport(0, 0, backingBounds.size.width, backingBounds.size.height);
+    
+    
+    float scaleX = backingBounds.size.width / _movieSize.width;
+    float scaleY = backingBounds.size.height / _movieSize.height;
+    float scaleN = 0.0;
+    
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    
+    if(scaleX > scaleY){
+        scaleN = scaleX / scaleY;
+        glOrtho(-1 * scaleN, 1 * scaleN, -1 , 1, -20., 20.);
+    } else {
+        scaleN = scaleY / scaleX;
+        glOrtho(-1, 1, -1 * scaleN, 1* scaleN, -20., 20.);
+    }
+
     
     glClearColor(0.0, 0.0, 0.0, 0.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	
-	[[self openGLContext] flushBuffer];
+//	[[self openGLContext] flushBuffer];
+    [self setNeedsDisplay:YES];
 }
 
 - (void)drawRect:(NSRect)rect

@@ -36,7 +36,16 @@
 
 @implementation IOSurfaceTestAppDelegate
 
-@synthesize window, moviePlayer, moviePath, view, playButton, fpsField, movieProxy, currentMoviePosition, maxMoviePosition;
+@synthesize window;
+@synthesize moviePlayer;
+@synthesize moviePath;
+@synthesize view;
+@synthesize playButton;
+@synthesize fpsField;
+@synthesize movieProxy;
+@synthesize currentMoviePosition;
+@synthesize maxMoviePosition;
+@synthesize movieSizeForView;
 
 + (NSString*)uuid{
     CFUUIDRef	uuidObj = CFUUIDCreate(nil);//create a new UUID
@@ -84,11 +93,46 @@
     [self launchHelper];
     
     [(PCScrubber*)[self rateSlider] setDelegate:self];
+    [[self view] setController:self];
+    
+//    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(4.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+//        [[self movieProxy] addMovieURL:[NSURL fileURLWithPath:@"/Users/patrickcusack/Documents/swtfa-358fz9G-tlr1_1080pDNxHD.mov"]];
+//        [self getMovieInfo];
+//        [[self movieProxy] setMovieIsPlaying:YES];
+//    });
+//    
+//    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(30.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+//        [[self movieProxy] addMovieURL:[NSURL fileURLWithPath:@"/Users/patrickcusack/Documents/DeveloperShare/VT_R1v0317_PIX.mov"]];
+//        [self getMovieInfo];
+//        [[self movieProxy] setMovieIsPlaying:YES];
+//    });
+//    
+//    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(60.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+//        [[self movieProxy] addMovieURL:[NSURL fileURLWithPath:@"/Users/patrickcusack/Documents/swtfa-358fz9G-tlr1_1080pDNxHD.mov"]];
+//        [self getMovieInfo];
+//        [[self movieProxy] setMovieIsPlaying:YES];
+//    });
+//    
+//    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(90.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+//        [[self movieProxy] addMovieURL:[NSURL fileURLWithPath:@"/Users/patrickcusack/Documents/DeveloperShare/VT_R1v0317_PIX.mov"]];
+//        [self getMovieInfo];
+//        [[self movieProxy] setMovieIsPlaying:YES];
+//    });
+    
 }
 
 - (void)applicationWillTerminate:(NSNotification *)notification{
     [[self movieProxy] quitHelperTool];
     [self setMovieProxy:nil];
+}
+
+- (void)handleDragURL:(NSURL *)dragURL{
+    [self loadMovieURL:dragURL];
+}
+
+- (void)loadMovieURL:(NSURL*)url{
+    [[self movieProxy] addMovieURL:url];
+    [self getMovieInfo];
 }
 
 - (void)getMovieInfo{
@@ -97,6 +141,8 @@
         [self setMaxMoviePosition:[[self movieProxy] maxTimeValue]];
         [[self positionSlider] setDoubleValue:0.0];
         [[self positionSlider] setMaxValue:[self maxMoviePosition]];
+        [self setMovieSizeForView:[[[self movieProxy] movieSize] sizeValue]];
+        [[self view] setMovieSize:[self movieSizeForView]];
     }
 }
 
@@ -165,8 +211,7 @@
         switch (returnCode) {
             case NSOKButton:
                 self.moviePath	= [[openPanel URL] path];
-                [[self movieProxy] openMovieURL:[openPanel URL]];
-                [self getMovieInfo];
+                [self loadMovieURL:[openPanel URL]];
                 break;
             default:
                 self.moviePath	= nil;

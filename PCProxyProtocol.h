@@ -8,16 +8,17 @@
 
 @protocol PCProxyProtocol
 
+- (oneway void)addMovieURL:(NSURL*)movieURL;
 - (oneway void)openMovieURL:(NSURL*)movieURL;
 
 #pragma mark - setters for movie properties
-- (oneway void) setMovieIsPlaying:(BOOL)flag;
+- (void)playMovie;
+- (void)stopMovie;
+- (oneway void)setMovieIsPlaying:(BOOL)flag;
 - (void)goToBeginning;
 - (void)goToEnd;
 - (oneway void)goToTimeValue:(long)timeValue;
 - (oneway void)setMovieRate:(float)nRate;
-//- (oneway void) setMovieRate:(float)rate;
-//- (oneway void) setMovieTime:(float)time;
 
 #pragma mark - getters for movie properties
 -(BOOL)hasMovie;
@@ -27,6 +28,7 @@
 -(long long)currentTimeValue;
 -(long long)maxTimeValue;
 -(long)timeScale;
+-(NSValue*)movieSize;
 
 //- (float) movieRate;
 //- (double) movieTime;

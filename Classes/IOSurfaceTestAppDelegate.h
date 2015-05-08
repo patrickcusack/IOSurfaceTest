@@ -34,10 +34,9 @@
 #import "TaskWrapper.h"
 #import "PCScrubber.h"
 #import "PCProxyProtocol.h"
+#import "IOSurfaceTestView.h"
 
-@class IOSurfaceTestView;
-
-@interface IOSurfaceTestAppDelegate : NSObject <NSApplicationDelegate, TaskWrapperController, PCScrubberProxy>
+@interface IOSurfaceTestAppDelegate : NSObject <NSApplicationDelegate, TaskWrapperController, PCScrubberProxy,IOSurfaceTestViewDragController>
 {
     NSWindow			*window;
 	IOSurfaceTestView	*view;
@@ -55,7 +54,10 @@
     id                  movieProxy;
     unsigned long       maxMoviePosition;
     unsigned long       currentMoviePosition;
+    NSSize              movieSizeForView;
 }
+
+- (void)loadMovieURL:(NSURL*)url;
 
 - (IBAction)chooseMovie: (id)sender;
 - (void)getMovieInfo;
@@ -87,5 +89,6 @@
 @property (nonatomic, readwrite, retain) id movieProxy;
 @property (nonatomic, assign) unsigned long maxMoviePosition;
 @property (nonatomic, assign) unsigned long currentMoviePosition;
+@property (nonatomic, assign) NSSize movieSizeForView;
 
 @end
